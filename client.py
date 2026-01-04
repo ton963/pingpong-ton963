@@ -2,10 +2,23 @@ from pygame import *
 import socket
 import json
 from threading import Thread
+import sys
+
+HOST = "127.0.0.1"
+PORT = 8080
+PLAYER_NAME = "Player"
+
+if len(sys.argv) >= 3:
+    HOST = sys.argv[1]
+    PORT = int(sys.argv[2])
+
+if len(sys.argv) >= 4:
+    PLAYER_NAME = sys.argv[3]
 
 # ---ПУГАМЕ НАЛАШТУВАННЯ ---
 WIDTH, HEIGHT = 800, 600
 init()
+mixer.init()
 screen = display.set_mode((WIDTH, HEIGHT))
 clock = time.Clock()
 display.set_caption("Пінг-Понг")
@@ -20,7 +33,7 @@ def connect_to_server():
     while True:
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect(('localhost', 8080)) # ---- Підключення до сервера
+            client.connect((HOST, PORT)) # ---- Підключення до сервера
             buffer = ""
             game_state = {}
             my_id = int(client.recv(24).decode())
@@ -49,13 +62,22 @@ font_main = font.Font(None, 36)
 # --- ЗОБРАЖЕННЯ ----
 
 # --- ЗВУКИ ---
+mixer.music.load("sounds/background.ogg")
+wall_hit_sound = mixer.Sound("sounds/wall.wav")
+platform_hit_sound = mixer.Sound("sounds/platform.wav")
+win_sound = mixer.Sound("sounds/win.wav")
+lose_sound = mixer.Sound("sounds/loser.wav")
 
+mixer.music.set_volume(0.8)
 # --- ГРА ---
 game_over = False
 winner = None
 you_winner = None
 my_id, game_state, buffer, client = connect_to_server()
 Thread(target=receive, daemon=True).start()
+
+mixer.music.play(-1)
+
 while True:
     for e in event.get():
         if e.type == QUIT:
@@ -74,8 +96,10 @@ while True:
         if you_winner is None:  # Встановлюємо тільки один раз
             if game_state["winner"] == my_id:
                 you_winner = True
+                win_sound.play()
             else:
                 you_winner = False
+                lose_sound.play()
 
         if you_winner:
             text = "Ти переміг!"
@@ -105,10 +129,13 @@ while True:
         if game_state['sound_event']:
             if game_state['sound_event'] == 'wall_hit':
                 # звук відбиття м'ячика від стін
+                wall_hit_sound.play()
                 pass
             if game_state['sound_event'] == 'platform_hit':
                 # звук відбиття м'ячика від платформи
+                platform_hit_sound.play()
                 pass
+
 
     else:
         wating_text = font_main.render(f"Очікування гравців...", True, (255, 255, 255))
